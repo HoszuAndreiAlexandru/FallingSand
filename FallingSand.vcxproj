@@ -109,12 +109,13 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(ProjectDir)externals\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>sfml-graphics.lib;sfml-window.lib;sfml-system.lib;sfml-graphics-d.lib;sfml-window-d.lib;sfml-system-d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>sfml-graphics-d.lib;sfml-window-d.lib;sfml-system-d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy "$(ProjectDir)externals\bin\sfml-graphics-3.dll" "$(TargetDir)"
 copy "$(ProjectDir)externals\bin\sfml-window-3.dll" "$(TargetDir)"
-copy "$(ProjectDir)externals\\bin\sfml-system-3.dll" "$(TargetDir)"</Command>
+copy "$(ProjectDir)externals\bin\sfml-system-3.dll" "$(TargetDir)"
+copy "$(ProjectDir)arial.ttf" "$(TargetDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
