@@ -14,6 +14,7 @@ std::vector<uint8_t> pixels(WIDTH* HEIGHT * 4, 0);
 
 void stepSim()
 {
+    /*
     for (unsigned i = 0; i < WIDTH * HEIGHT; ++i)
     {
         // Coloring everything with some coral/orange
@@ -21,6 +22,52 @@ void stepSim()
         pixels[i * 4 + 1] = 100; // G
         pixels[i * 4 + 2] = 50;  // B
         pixels[i * 4 + 3] = 255; // A
+    }
+    */
+}
+
+void updatePixelsFromGrid()
+{
+    for (int y = 0; y < HEIGHT; ++y)
+    {
+        for (int x = 0; x < WIDTH; ++x)
+        {
+            int i = y * WIDTH + x;
+
+            if (grid[i] == 1) // sand
+            {
+                pixels[i * 4 + 0] = 255;
+                pixels[i * 4 + 1] = 200;
+                pixels[i * 4 + 2] = 50;
+                pixels[i * 4 + 3] = 255;
+            }
+            else // empty
+            {
+                pixels[i * 4 + 0] = 0;
+                pixels[i * 4 + 1] = 0;
+                pixels[i * 4 + 2] = 0;
+                pixels[i * 4 + 3] = 255;
+            }
+        }
+    }
+}
+
+void parseMouseClick(sf::Vector2i position)
+{
+    if (position.x < 0 || position.x > WIDTH || position.y > HEIGHT || position.y < 0)
+    {
+        return;
+    }
+
+    std::cout << "Mouse clicked at :" << position.x << " " << position.y << "\n";
+}
+
+void parseMouseInput(sf::RenderWindow& window)
+{
+    if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left))
+    {
+        sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+        parseMouseClick(mousePos);
     }
 }
 
@@ -52,10 +99,14 @@ int main()
         while (const std::optional<sf::Event> event = window.pollEvent())
         {
             if (event->is<sf::Event::Closed>())
+            {
                 window.close();
+            }
         }
 
+        parseMouseInput(window);
         stepSim();
+        updatePixelsFromGrid();
         texture.update(pixels.data());
 
         auto now = clock::now();
