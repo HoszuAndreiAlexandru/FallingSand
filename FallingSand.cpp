@@ -5,25 +5,45 @@
 
 const int WIDTH = 256;
 const int HEIGHT = 256;
-
 const int TEXT_SIZE = 14;
 
-std::vector<std::uint8_t> grid(WIDTH* HEIGHT, 0);
-
-std::vector<uint8_t> pixels(WIDTH* HEIGHT * 4, 0);
+std::vector<uint8_t> grid(WIDTH * HEIGHT, 0);
+std::vector<uint8_t> pixels(WIDTH * HEIGHT * 4, 0);
 
 void stepSim()
 {
-    /*
-    for (unsigned i = 0; i < WIDTH * HEIGHT; ++i)
+    for (int y = HEIGHT - 2; y >= 0; --y)
     {
-        // Coloring everything with some coral/orange
-        pixels[i * 4 + 0] = 255; // R
-        pixels[i * 4 + 1] = 100; // G
-        pixels[i * 4 + 2] = 50;  // B
-        pixels[i * 4 + 3] = 255; // A
+        for (int x = 0; x < WIDTH; ++x)
+        {
+            const int i = y * WIDTH + x;
+            const int below = (y + 1) * WIDTH + x;
+
+            if (grid[i] == 1)
+            {
+                if (below >= WIDTH * HEIGHT)
+                {
+                    continue;
+                }
+
+                if (grid[below] == 0)
+                {
+                    grid[i] = 0;
+                    grid[below] = 1;
+                }
+                else if (below % WIDTH + 1 < WIDTH && grid[below + 1] == 0)
+                {
+                    grid[i] = 0;
+                    grid[below + 1] = 1;
+                }
+                else if (below % WIDTH - 1 >= 0 && grid[below - 1] == 0)
+                {
+                    grid[i] = 0;
+                    grid[below - 1] = 1;
+                }
+            }
+        }
     }
-    */
 }
 
 void updatePixelsFromGrid()
@@ -54,12 +74,10 @@ void updatePixelsFromGrid()
 
 void parseMouseClick(sf::Vector2i position)
 {
-    if (position.x < 0 || position.x > WIDTH || position.y > HEIGHT || position.y < 0)
-    {
-        return;
-    }
-
     std::cout << "Mouse clicked at :" << position.x << " " << position.y << "\n";
+
+    unsigned int index = position.y * WIDTH + position.x;
+    grid[index] = 1;
 }
 
 void parseMouseInput(sf::RenderWindow& window)
@@ -67,6 +85,12 @@ void parseMouseInput(sf::RenderWindow& window)
     if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left))
     {
         sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+
+        if (mousePos.x < 0 || mousePos.x >= WIDTH || mousePos.y >= HEIGHT || mousePos.y < 0)
+        {
+            return;
+        }
+
         parseMouseClick(mousePos);
     }
 }
