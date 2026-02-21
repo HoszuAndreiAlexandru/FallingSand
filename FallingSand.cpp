@@ -7,11 +7,14 @@ const int WIDTH = 256;
 const int HEIGHT = 256;
 const int TEXT_SIZE = 14;
 
+const float FPS_UPDATE_INTERVAL = 0.016f;
+
 std::vector<uint8_t> grid(WIDTH * HEIGHT, 0);
 std::vector<uint8_t> pixels(WIDTH * HEIGHT * 4, 0);
 
-void stepSim()
+inline void stepSim()
 {
+    //return;
     for (int y = HEIGHT - 2; y >= 0; --y)
     {
         for (int x = 0; x < WIDTH; ++x)
@@ -46,8 +49,9 @@ void stepSim()
     }
 }
 
-void updatePixelsFromGrid()
+inline void updatePixelsFromGrid()
 {
+    //return;
     for (int y = 0; y < HEIGHT; ++y)
     {
         for (int x = 0; x < WIDTH; ++x)
@@ -72,7 +76,7 @@ void updatePixelsFromGrid()
     }
 }
 
-void parseMouseClick(sf::Vector2i position)
+inline void parseMouseClick(sf::Vector2i position)
 {
     std::cout << "Mouse clicked at :" << position.x << " " << position.y << "\n";
 
@@ -80,7 +84,7 @@ void parseMouseClick(sf::Vector2i position)
     grid[index] = 1;
 }
 
-void parseMouseInput(sf::RenderWindow& window)
+inline void parseMouseInput(sf::RenderWindow& window)
 {
     if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left))
     {
@@ -92,6 +96,28 @@ void parseMouseInput(sf::RenderWindow& window)
         }
 
         parseMouseClick(mousePos);
+    }
+}
+
+inline void parseAndShowPerformanceMetrics(std::chrono::steady_clock::time_point& lastFrameTime, std::chrono::steady_clock::time_point& fpsTimer, int& frameCount, int& fps, sf::Text& fpsText)
+{
+    using clock = std::chrono::high_resolution_clock;
+
+    auto now = clock::now();
+    float dt = std::chrono::duration<float>(now - lastFrameTime).count();
+    lastFrameTime = now;
+
+    frameCount++;
+
+    float elapsed = std::chrono::duration<float>(now - fpsTimer).count();
+
+    if (elapsed >= FPS_UPDATE_INTERVAL)
+    {
+        fps = static_cast<int>(frameCount / elapsed);
+        frameCount = 0;
+        fpsTimer = now;
+
+        fpsText.setString("FPS: " + std::to_string(fps));
     }
 }
 
@@ -116,7 +142,12 @@ int main()
     fpsText.setPosition(sf::Vector2(1.f, 1.f));
 
     using clock = std::chrono::high_resolution_clock;
-    auto lastTime = clock::now();
+
+    auto lastFrameTime = clock::now();
+    auto fpsTimer = clock::now();
+
+    int frameCount = 0;
+    int fps = 0;
 
     while (window.isOpen())
     {
@@ -128,16 +159,12 @@ int main()
             }
         }
 
+        parseAndShowPerformanceMetrics(lastFrameTime, fpsTimer, frameCount, fps, fpsText);
+
         parseMouseInput(window);
         stepSim();
         updatePixelsFromGrid();
         texture.update(pixels.data());
-
-        auto now = clock::now();
-        float dt = std::chrono::duration<float>(now - lastTime).count();
-        lastTime = now;
-        int fps = static_cast<int>(1.f / dt);
-        fpsText.setString("FPS: " + std::to_string(fps));
 
         window.clear();
         window.draw(sprite);
