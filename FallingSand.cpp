@@ -9,76 +9,98 @@ const int TEXT_SIZE = 14;
 
 const float FPS_UPDATE_INTERVAL = 0.016f;
 
+const int dirtyCellsCache = 1 << 14;
+
 std::vector<uint8_t> grid(WIDTH * HEIGHT, 0);
 std::vector<uint8_t> pixels(WIDTH * HEIGHT * 4, 0);
 
+std::vector<int> dirtyCells(dirtyCellsCache);
+
+inline void SAND_SIM(int& x, int& y, int& i, int& row, int& rowBelow)
+{
+    int below = rowBelow + x;
+
+    if (grid[below] == 0)
+    {
+        grid[i] = 0;
+        grid[below] = 1;
+
+        dirtyCells.push_back(i);
+        dirtyCells.push_back(below);
+    }
+    else
+    {
+        bool tryLeft = (rand() & 1) == 0;
+
+        if (tryLeft)
+        {
+            if (x > 0 && grid[below - 1] == 0)
+            {
+                grid[i] = 0;
+                grid[below - 1] = 1;
+
+                dirtyCells.push_back(i);
+                dirtyCells.push_back(below - 1);
+            }
+        }
+        else
+        {
+            if (x < WIDTH - 1 && grid[below + 1] == 0)
+            {
+                grid[i] = 0;
+                grid[below + 1] = 1;
+
+                dirtyCells.push_back(i);
+                dirtyCells.push_back(below + 1);
+            }
+        }
+    }
+}
+
 inline void stepSim()
 {
-    //return;
     for (int y = HEIGHT - 2; y >= 0; --y)
     {
+        int row = y * WIDTH;
+        int rowBelow = row + WIDTH;
+
         for (int x = 0; x < WIDTH; ++x)
         {
-            const int i = y * WIDTH + x;
-            const int below = (y + 1) * WIDTH + x;
+            int i = row + x;
 
-            if (grid[i] == 1)
-            {
-                if (below >= WIDTH * HEIGHT)
-                {
-                    continue;
-                }
-
-                if (grid[below] == 0)
-                {
-                    grid[i] = 0;
-                    grid[below] = 1;
-                }
-                else if (below % WIDTH + 1 < WIDTH && grid[below + 1] == 0)
-                {
-                    grid[i] = 0;
-                    grid[below + 1] = 1;
-                }
-                else if (below % WIDTH - 1 >= 0 && grid[below - 1] == 0)
-                {
-                    grid[i] = 0;
-                    grid[below - 1] = 1;
-                }
-            }
+            if (grid[i] == 1) SAND_SIM(x, y, i, row, rowBelow);
         }
     }
 }
 
 inline void updatePixelsFromGrid()
 {
-    //return;
-    for (int y = 0; y < HEIGHT; ++y)
+    for (int i : dirtyCells)
     {
-        for (int x = 0; x < WIDTH; ++x)
-        {
-            int i = y * WIDTH + x;
+        int p = i * 4;
 
-            if (grid[i] == 1) // sand
-            {
-                pixels[i * 4 + 0] = 255;
-                pixels[i * 4 + 1] = 200;
-                pixels[i * 4 + 2] = 50;
-                pixels[i * 4 + 3] = 255;
-            }
-            else // empty
-            {
-                pixels[i * 4 + 0] = 0;
-                pixels[i * 4 + 1] = 0;
-                pixels[i * 4 + 2] = 0;
-                pixels[i * 4 + 3] = 255;
-            }
+        if (grid[i] == 1)
+        {
+            pixels[p + 0] = 255;
+            pixels[p + 1] = 200;
+            pixels[p + 2] = 50;
+            pixels[p + 3] = 255;
+        }
+        else
+        {
+            pixels[p + 0] = 0;
+            pixels[p + 1] = 0;
+            pixels[p + 2] = 0;
+            pixels[p + 3] = 255;
         }
     }
+
+    dirtyCells.clear();
 }
 
 inline void parseMouseClick(sf::Vector2i position)
 {
-    std::cout << "Mouse clicked at :" << position.x << " " << position.y << "\n";
+    //std::cout << "Mouse clicked at :" << position.x << " " << position.y << "\n";
 
     unsigned int index = position.y * WIDTH + position.x;
     grid[index] = 1;
