@@ -3,8 +3,13 @@
 #include <SFML/Graphics.hpp>
 #include "SFML/System.hpp"
 
-const int WIDTH = 512;
-const int HEIGHT = 512;
+const int WINDOW_WIDTH = 1920;
+const int WINDOW_HEIGHT = 1080;
+
+const int SCALE = 4;
+
+const int WIDTH = WINDOW_WIDTH / SCALE;
+const int HEIGHT = WINDOW_HEIGHT / SCALE;
 const int TEXT_SIZE = 14;
 
 const float SIM_STEP = 1.0f / 60.0f;
@@ -180,6 +185,8 @@ inline void parseMouseInput(sf::RenderWindow& window)
     if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left))
     {
         sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+        mousePos.x /= SCALE;
+        mousePos.y /= SCALE;
 
         if (mousePos.x < 0 || mousePos.x >= WIDTH || mousePos.y >= HEIGHT || mousePos.y < 0)
         {
@@ -246,11 +253,12 @@ inline float parseAndShowPerformanceMetrics(std::chrono::steady_clock::time_poin
 
 int main()
 {
-    sf::RenderWindow window(sf::VideoMode({ WIDTH, HEIGHT }), "Falling sand simulation");
+    sf::RenderWindow window(sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Falling sand simulation");
 
     sf::Texture texture(sf::Vector2u(WIDTH, HEIGHT));
     texture.update(pixels.data());
     sf::Sprite sprite(texture);
+    sprite.setScale(sf::Vector2f(static_cast<float>(SCALE), static_cast<float>(SCALE)));
 
     sf::Font font;
     std::filesystem::path fontPath = "arial.ttf";
