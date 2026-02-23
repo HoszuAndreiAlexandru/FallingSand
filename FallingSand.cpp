@@ -3,22 +3,66 @@
 #include <SFML/Graphics.hpp>
 #include "SFML/System.hpp"
 
-const int WIDTH = 256;
-const int HEIGHT = 256;
+const int WIDTH = 512;
+const int HEIGHT = 512;
 const int TEXT_SIZE = 14;
 
 const float FPS_UPDATE_INTERVAL = 0.016f;
 
-const int dirtyCellsCache = 1 << 14;
+std::vector<int> activeCellsNow;
+std::vector<int> activeCellsNext;
+std::vector<uint8_t> activeFlag(WIDTH * HEIGHT, 0); // For duplicate issue
+
+const int dirtyPixelsCache = 1 << 14;
 
 std::vector<uint8_t> grid(WIDTH * HEIGHT, 0);
 std::vector<uint8_t> pixels(WIDTH * HEIGHT * 4, 0);
 
-std::vector<int> dirtyCells(dirtyCellsCache);
+std::vector<int> dirtyCells(dirtyPixelsCache);
 
+#pragma region Active cell caching
+inline void activateCell(int i)
+{
+    if (activeFlag[i])
+    {
+        return;
+    }
+
+    activeFlag[i] = 1;
+    activeCellsNext.push_back(i);
+}
+
+inline void activateCellNeighborhood(int x, int y)
+{
+    for (int dy = -1; dy <= 1; ++dy)
+    {
+        int ny = y + dy;
+        if (ny < 0 || ny >= HEIGHT - 1)
+        {
+            continue;
+        }
+
+        int row = ny * WIDTH;
+
+        for (int dx = -1; dx <= 1; ++dx)
+        {
+            int nx = x + dx;
+            if (nx < 0 || nx >= WIDTH - 1)
+            {
+                continue;
+            }
+
+            activateCell(row + nx);
+        }
+    }
+}
+#pragma endregion
+
+#pragma region Simulation
 inline void SAND_SIM(int& x, int& y, int& i, int& row, int& rowBelow)
 {
     int below = rowBelow + x;
+    int belowY = (below / WIDTH);
 
     if (grid[below] == 0)
     {
@@ -27,6 +71,9 @@ inline void SAND_SIM(int& x, int& y, int& i, int& row, int& rowBelow)
 
         dirtyCells.push_back(i);
         dirtyCells.push_back(below);
+
+        activateCellNeighborhood(x, y);
+        activateCellNeighborhood(x, belowY);
     }
     else
     {
@@ -41,6 +88,9 @@ inline void SAND_SIM(int& x, int& y, int& i, int& row, int& rowBelow)
 
                 dirtyCells.push_back(i);
                 dirtyCells.push_back(below - 1);
+
+                activateCellNeighborhood(x, y);
+                activateCellNeighborhood(x, belowY - 1);
             }
         }
         else
@@ -52,6 +102,9 @@ inline void SAND_SIM(int& x, int& y, int& i, int& row, int& rowBelow)
 
                 dirtyCells.push_back(i);
                 dirtyCells.push_back(below + 1);
+
+                activateCellNeighborhood(x, y);
+                activateCellNeighborhood(x, belowY + 1);
             }
         }
     }
@@ -59,20 +112,29 @@ inline void SAND_SIM(int& x, int& y, int& i, int& row, int& rowBelow)
 
 inline void stepSim()
 {
-    for (int y = HEIGHT - 2; y >= 0; --y)
+    activeCellsNow.swap(activeCellsNext);
+    activeCellsNext.clear();
+
+    for (int i : activeCellsNow)
     {
+        activeFlag[i] = 0;
+
+        if (grid[i] == 0) // If space is empty ignore it
+        {
+            continue;
+        }
+
+        int x = i % WIDTH;
+        int y = i / WIDTH;
         int row = y * WIDTH;
         int rowBelow = row + WIDTH;
 
-        for (int x = 0; x < WIDTH; ++x)
-        {
-            int i = row + x;
-
-            if (grid[i] == 1) SAND_SIM(x, y, i, row, rowBelow);
-        }
+        if (grid[i] == 1) SAND_SIM(x, y, i, row, rowBelow);
     }
 }
+#pragma endregion
 
+#pragma region Image result parsing
 inline void updatePixelsFromGrid()
 {
     for (int i : dirtyCells)
@@ -97,13 +159,17 @@ inline void updatePixelsFromGrid()
 
     dirtyCells.clear();
 }
+#pragma endregion
 
+#pragma region Input handling
 inline void parseMouseClick(sf::Vector2i position)
 {
-    //std::cout << "Mouse clicked at :" << position.x << " " << position.y << "\n";
+    const unsigned int index = position.y * WIDTH + position.x;
 
-    unsigned int index = position.y * WIDTH + position.x;
     grid[index] = 1;
+    dirtyCells.push_back(index);
+    activateCell(index);
+    activateCellNeighborhood(position.x, position.y);
 }
 
 inline void parseMouseInput(sf::RenderWindow& window)
@@ -121,6 +187,35 @@ inline void parseMouseInput(sf::RenderWindow& window)
     }
 }
 
+inline bool keyWasPressed(sf::Keyboard::Key key)
+{
+    return sf::Keyboard::isKeyPressed(key);
+}
+
+inline void parseKeyboardInput(sf::RenderWindow& window)
+{
+    if (keyWasPressed(sf::Keyboard::Key::R))
+    {
+        std::fill(grid.begin(), grid.end(), 0);
+
+        for (size_t i = 0; i < pixels.size(); i += 4)
+        {
+            pixels[i + 0] = 0;
+            pixels[i + 1] = 0;
+            pixels[i + 2] = 0;
+            pixels[i + 3] = 255;
+        }
+
+        activeCellsNow.clear();
+        activeCellsNext.clear();
+        std::fill(activeFlag.begin(), activeFlag.end(), 0);
+
+        dirtyCells.clear();
+    }
+}
+#pragma endregion
+
+#pragma region UI
 inline void parseAndShowPerformanceMetrics(std::chrono::steady_clock::time_point& lastFrameTime, std::chrono::steady_clock::time_point& fpsTimer, int& frameCount, int& fps, sf::Text& fpsText)
 {
     using clock = std::chrono::high_resolution_clock;
@@ -142,6 +237,7 @@ inline void parseAndShowPerformanceMetrics(std::chrono::steady_clock::time_point
         fpsText.setString("FPS: " + std::to_string(fps));
     }
 }
+#pragma endregion
 
 int main()
 {
@@ -183,7 +279,6 @@ int main()
 
         parseAndShowPerformanceMetrics(lastFrameTime, fpsTimer, frameCount, fps, fpsText);
 
-        parseMouseInput(window);
         stepSim();
         updatePixelsFromGrid();
         texture.update(pixels.data());
@@ -192,5 +287,8 @@ int main()
         window.draw(sprite);
         window.draw(fpsText);
         window.display();
+
+        parseMouseInput(window);
+        parseKeyboardInput(window);
     }
 }
