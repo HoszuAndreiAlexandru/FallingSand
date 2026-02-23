@@ -1,12 +1,15 @@
 #include <iostream>
 
+#include <thread>
+#include <algorithm>
+
 #include <SFML/Graphics.hpp>
 #include "SFML/System.hpp"
 
 const int WINDOW_WIDTH = 1920;
 const int WINDOW_HEIGHT = 1080;
 
-const int SCALE = 4;
+const int SCALE = 3;
 
 const int WIDTH = WINDOW_WIDTH / SCALE;
 const int HEIGHT = WINDOW_HEIGHT / SCALE;
@@ -143,6 +146,56 @@ inline void stepSim()
 #pragma endregion
 
 #pragma region Image result parsing
+inline void updatePixelsFromGridMT()
+{
+    const int numThreads = std::thread::hardware_concurrency(); // Number of CPU cores should be a solid choice
+    const int n = static_cast<int>(dirtyCells.size());
+    if (n == 0) return;
+
+    // Split dirtyCells into some chunks
+    std::vector<std::thread> threads(numThreads);
+
+    auto worker = [&](int start, int end)
+        {
+            for (int idx = start; idx < end; ++idx)
+            {
+                int i = dirtyCells[idx];
+                int p = i * 4;
+
+                if (grid[i] == 1)
+                {
+                    pixels[p + 0] = 255;
+                    pixels[p + 1] = 200;
+                    pixels[p + 2] = 50;
+                    pixels[p + 3] = 255;
+                }
+                else
+                {
+                    pixels[p + 0] = 0;
+                    pixels[p + 1] = 0;
+                    pixels[p + 2] = 0;
+                    pixels[p + 3] = 255;
+                }
+            }
+        };
+
+    int chunkSize = (n + numThreads - 1) / numThreads; // Ceil division
+
+    for (int t = 0; t < numThreads; ++t)
+    {
+        int start = t * chunkSize;
+        int end = std::min(start + chunkSize, n);
+        threads[t] = std::thread(worker, start, end);
+    }
+
+    for (auto& th : threads)
+    {
+        th.join();
+    }
+
+    dirtyCells.clear();
+}
+
 inline void updatePixelsFromGrid()
 {
     for (int i : dirtyCells)
@@ -297,7 +350,8 @@ int main()
         while (simAccumulator >= SIM_STEP)
         {
             stepSim();
-            updatePixelsFromGrid();
+            //updatePixelsFromGrid();
+            updatePixelsFromGridMT();
             simAccumulator -= SIM_STEP;
         }
 
