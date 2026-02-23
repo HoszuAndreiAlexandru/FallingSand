@@ -7,7 +7,10 @@ const int WIDTH = 512;
 const int HEIGHT = 512;
 const int TEXT_SIZE = 14;
 
-const float FPS_UPDATE_INTERVAL = 0.016f;
+const float SIM_STEP = 1.0f / 60.0f;
+float simAccumulator = 0.f;
+
+const float FPS_UPDATE_INTERVAL = 1.0f / 60.0f;
 
 std::vector<int> activeCellsNow;
 std::vector<int> activeCellsNext;
@@ -216,12 +219,12 @@ inline void parseKeyboardInput(sf::RenderWindow& window)
 #pragma endregion
 
 #pragma region UI
-inline void parseAndShowPerformanceMetrics(std::chrono::steady_clock::time_point& lastFrameTime, std::chrono::steady_clock::time_point& fpsTimer, int& frameCount, int& fps, sf::Text& fpsText)
+inline float parseAndShowPerformanceMetrics(std::chrono::steady_clock::time_point& lastFrameTime, std::chrono::steady_clock::time_point& fpsTimer, int& frameCount, int& fps, sf::Text& fpsText)
 {
     using clock = std::chrono::high_resolution_clock;
 
     auto now = clock::now();
-    float dt = std::chrono::duration<float>(now - lastFrameTime).count();
+    float deltaTime = std::chrono::duration<float>(now - lastFrameTime).count();
     lastFrameTime = now;
 
     frameCount++;
@@ -236,6 +239,8 @@ inline void parseAndShowPerformanceMetrics(std::chrono::steady_clock::time_point
 
         fpsText.setString("FPS: " + std::to_string(fps));
     }
+
+    return deltaTime;
 }
 #pragma endregion
 
@@ -277,10 +282,17 @@ int main()
             }
         }
 
-        parseAndShowPerformanceMetrics(lastFrameTime, fpsTimer, frameCount, fps, fpsText);
+        float deltaTime = parseAndShowPerformanceMetrics(lastFrameTime, fpsTimer, frameCount, fps, fpsText);
 
-        stepSim();
-        updatePixelsFromGrid();
+        simAccumulator += deltaTime;
+
+        while (simAccumulator >= SIM_STEP)
+        {
+            stepSim();
+            updatePixelsFromGrid();
+            simAccumulator -= SIM_STEP;
+        }
+
         texture.update(pixels.data());
 
         window.clear();
