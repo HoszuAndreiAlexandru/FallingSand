@@ -9,7 +9,7 @@
 const int WINDOW_WIDTH = 1920;
 const int WINDOW_HEIGHT = 1080;
 
-const int SCALE = 3;
+const int SCALE = 1;
 
 const int WIDTH = WINDOW_WIDTH / SCALE;
 const int HEIGHT = WINDOW_HEIGHT / SCALE;
@@ -347,15 +347,21 @@ int main()
 
         simAccumulator += deltaTime;
 
+        bool textureNeedsUpdate = false;
+
         while (simAccumulator >= SIM_STEP)
         {
             stepSim();
-            //updatePixelsFromGrid();
-            updatePixelsFromGridMT();
             simAccumulator -= SIM_STEP;
+            textureNeedsUpdate = true;
         }
 
-        texture.update(pixels.data());
+        if (textureNeedsUpdate)
+        {
+            //updatePixelsFromGrid();
+            updatePixelsFromGridMT();
+            texture.update(pixels.data());
+        }
 
         window.clear();
         window.draw(sprite);
