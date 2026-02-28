@@ -24,11 +24,19 @@ const char* FONT_NAME = "arial.ttf";
 const int TEXT_SIZE = 14;
 
 const float SIM_STEP = 1.0f / 60.0f;
-const float FPS_UPDATE_INTERVAL = 1.0f / 60.0f;
+const float UI_UPDATE_INTERVAL = 1.0f / 60.0f;
 
 const int DEFAULT_CACHE_SIZE = 1 << 14;
 
-struct RGBA { uint8_t r, g, b, a; };
+struct alignas(uint32_t) RGBA
+{
+    uint8_t r, g, b, a;
+
+    inline uint32_t asUint() const
+    {
+        return *reinterpret_cast<const uint32_t*>(this);
+    }
+};
 
 struct ParticleData { RGBA color; };
 
@@ -140,13 +148,25 @@ inline bool randomBool()
 }
 #pragma endregion
 
+struct PerformanceMeasurement
+{
+    std::string text;
+    float value;
+};
+
 struct PerformanceMetrics
 {
     int frameCount = 0;
     int fps = 0;
 
     std::chrono::steady_clock::time_point lastFrameTime;
-    std::chrono::steady_clock::time_point fpsTimer;
+    std::chrono::steady_clock::time_point uiUpdateTimer;
+
+    PerformanceMeasurement pollTime;
+    PerformanceMeasurement simTime;
+    PerformanceMeasurement displayCreateTime;
+    PerformanceMeasurement inputTime;
+    PerformanceMeasurement displayTime;
 };
 
 struct Frontend
@@ -155,7 +175,9 @@ struct Frontend
     sf::Texture texture;
     sf::Sprite sprite;
     sf::Font font;
+
     sf::Text fpsText;
+    sf::Text msText;
 
     Frontend(sf::VideoMode mode = sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }),
         const std::string& title = WINDOW_TITLE,
@@ -165,6 +187,7 @@ struct Frontend
         , texture(sf::Vector2u(SIM_WIDTH, SIM_HEIGHT))
         , sprite(texture)
         , fpsText(font, "FPS: 0", TEXT_SIZE)
+        , msText(font, "Ms: 0", TEXT_SIZE)
     {
         if (!font.openFromFile(fontName))
         {
@@ -173,10 +196,16 @@ struct Frontend
 
         fpsText.setFillColor(sf::Color::White);
         fpsText.setPosition({ 1.f, 1.f });
+
+        msText.setFillColor(sf::Color::White);
+        msText.setPosition({ 1.f, 1.f + TEXT_SIZE });
     };
 
-    void pollEvents()
+    void pollEvents(PerformanceMetrics& perf)
     {
+        using clock = std::chrono::high_resolution_clock;
+        auto before = clock::now();
+
         while (const std::optional<sf::Event> event = window.pollEvent())
         {
             if (event->is<sf::Event::Closed>())
@@ -184,14 +213,24 @@ struct Frontend
                 window.close();
             }
         }
+
+        auto after = clock::now();
+        perf.pollTime.value += (after - before).count();
     };
 
-    void displayNewFrame()
+    void displayNewFrame(PerformanceMetrics& perf)
     {
+        using clock = std::chrono::high_resolution_clock;
+        auto before = clock::now();
+
         window.clear();
         window.draw(sprite);
         window.draw(fpsText);
+        window.draw(msText);
         window.display();
+
+        auto after = clock::now();
+        perf.displayTime.value += (after - before).count();
     };
 
     float parseAndShowPerformanceMetrics(PerformanceMetrics& perf)
@@ -204,15 +243,29 @@ struct Frontend
 
         perf.frameCount++;
 
-        float elapsed = std::chrono::duration<float>(now - perf.fpsTimer).count();
+        float elapsed = std::chrono::duration<float>(now - perf.uiUpdateTimer).count();
 
-        if (elapsed >= FPS_UPDATE_INTERVAL)
+        if (elapsed >= UI_UPDATE_INTERVAL)
         {
             perf.fps = static_cast<int>(perf.frameCount / elapsed);
             perf.frameCount = 0;
-            perf.fpsTimer = now;
+            perf.uiUpdateTimer = now;
 
             fpsText.setString("FPS: " + std::to_string(perf.fps));
+            msText.setString(
+                "\n"
+                "Poll ms: " + std::to_string(perf.pollTime.value / 1000000.0f).substr(0, 4) + "\n" +
+                "Sim ms: " + std::to_string(perf.simTime.value / 1000000.0f).substr(0, 4) + "\n" +
+                "Display create ms: " + std::to_string(perf.displayCreateTime.value / 1000000.0f).substr(0, 4) + "\n" +
+                "Parse ms: " + std::to_string(perf.inputTime.value / 1000000.0f).substr(0, 4) + "\n" +
+                "Display ms: " + std::to_string(perf.displayTime.value / 1000000.0f).substr(0, 4)
+            );
+
+            perf.pollTime.value = 0;
+            perf.simTime.value = 0;
+            perf.displayCreateTime.value = 0;
+            perf.inputTime.value = 0;
+            perf.displayTime.value = 0;
         }
 
         return deltaTime;
@@ -454,24 +507,37 @@ struct SimulationOrchestrator
         init();
     }
 
-    void parseInputs(Frontend& fe)
+    void parseInputs(Frontend& fe, PerformanceMetrics& perf)
     {
+        using clock = std::chrono::high_resolution_clock;
+        auto before = clock::now();
+
         parseMouseInput(fe.window);
         parseKeyboardInput(fe.window);
+
+        auto after = clock::now();
+        perf.inputTime.value += (after - before).count();
     };
 
-    void execute(float deltaTime, Frontend& fe)
+    void execute(float deltaTime, Frontend& fe, PerformanceMetrics& perf)
     {
         bool textureNeedsUpdate = false;
         accumulator += deltaTime;
 
-        while (accumulator >= SIM_STEP)
+        using clock = std::chrono::high_resolution_clock;
+        auto before = clock::now();
+
+        if (accumulator >= SIM_STEP)
         {
             cache.reset();
             simulation.step(cache);
             accumulator -= SIM_STEP;
             textureNeedsUpdate = true;
         }
+        auto after = clock::now();
+        perf.simTime.value += (after - before).count();
+
+        auto before1 = clock::now();
 
         if (textureNeedsUpdate)
         {
@@ -479,6 +545,9 @@ struct SimulationOrchestrator
 
             fe.texture.update(renderer.pixels.data());
         }
+
+        auto after1 = clock::now();
+        perf.displayCreateTime.value += (after1 - before1).count();
     };
 
 private:
@@ -502,7 +571,15 @@ private:
     {
         const unsigned int index = position.y * SIM_WIDTH + position.x;
 
-        modifyCell(position.x, position.y, Particle::SAND);
+        const int square_size = 5;
+
+        for (int i = position.x - square_size; i < position.x + square_size; i++)
+        {
+            for (int j = position.y - square_size; j < position.y + square_size; j++)
+            {
+                modifyCell(i, j, Particle::SAND);
+            }
+        }
     }
 
     void parseMouseInput(sf::RenderWindow& window)
@@ -550,7 +627,11 @@ int main()
         0,
         0,
         clock::now(),
-        clock::now()
+        clock::now(),
+        {"Poll", 0},
+        {"Sim", 0},
+        {"Input", 0},
+        {"Display", 0}
     };
 
     Frontend fe{
@@ -558,9 +639,9 @@ int main()
 
     while (fe.window.isOpen())
     {
-        fe.pollEvents();
-        orchestrator.execute(fe.parseAndShowPerformanceMetrics(perf), fe);
-        orchestrator.parseInputs(fe);
-        fe.displayNewFrame();
+        fe.pollEvents(perf);
+        orchestrator.execute(fe.parseAndShowPerformanceMetrics(perf), fe, perf);
+        orchestrator.parseInputs(fe, perf);
+        fe.displayNewFrame(perf);
     }
 }
