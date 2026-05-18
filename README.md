@@ -18,7 +18,7 @@ Render loop is as follows:
 <img width="720" height="405" alt="image" src="https://github.com/user-attachments/assets/654c5f88-b0d1-4f75-99f8-0868ad484261" />
 
 # TODOs
-- Add Linux/MacOS build support via Makefile
+- Add Linux/MacOS build support via Makefile + build script
 - Add more particle types, like water, rock, wood, fire, etc
 - Add multithreaded support for sim logic
 - Profile SFML to see if replacement is needed
