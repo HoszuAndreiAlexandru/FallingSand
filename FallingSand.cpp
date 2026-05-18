@@ -26,7 +26,7 @@ const int TEXT_SIZE = 14;
 const float SIM_STEP = 1.0f / 60.0f;
 const float UI_UPDATE_INTERVAL = 1.0f / 60.0f;
 
-const int DEFAULT_CACHE_SIZE = 1 << 14;
+const int DEFAULT_CACHE_SIZE = 1 << 14; // Unused for now
 
 struct alignas(uint32_t) RGBA
 {
