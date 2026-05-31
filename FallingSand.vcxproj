@@ -18,6 +18,9 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\FallingSand.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -112,10 +115,10 @@
       <AdditionalDependencies>sfml-graphics-d.lib;sfml-window-d.lib;sfml-system-d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(ProjectDir)externals\bin\sfml-graphics-3.dll" "$(TargetDir)"
-copy "$(ProjectDir)externals\bin\sfml-window-3.dll" "$(TargetDir)"
-copy "$(ProjectDir)externals\bin\sfml-system-3.dll" "$(TargetDir)"
-copy "$(ProjectDir)arial.ttf" "$(TargetDir)"</Command>
+      <Command>copy "$(ProjectDir)externals\bin\sfml-graphics-d-3.dll" "$(TargetDir)"
+copy "$(ProjectDir)externals\bin\sfml-window-d-3.dll" "$(TargetDir)"
+copy "$(ProjectDir)externals\bin\sfml-system-d-3.dll" "$(TargetDir)"
+copy "$(ProjectDir)res\arial.ttf" "$(TargetDir)res"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -132,9 +135,6 @@ copy "$(ProjectDir)arial.ttf" "$(TargetDir)"</Command>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="FallingSand.cpp" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

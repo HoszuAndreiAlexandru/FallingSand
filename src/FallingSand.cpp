@@ -189,7 +189,7 @@ struct Frontend
         , fpsText(font, "FPS: 0", TEXT_SIZE)
         , msText(font, "Ms: 0", TEXT_SIZE)
     {
-        if (!font.openFromFile(fontName))
+        if (!font.openFromFile("res/" + fontName))
         {
             throw std::runtime_error("Failed to load font!");
         }
