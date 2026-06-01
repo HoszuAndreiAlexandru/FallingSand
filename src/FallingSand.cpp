@@ -5,6 +5,7 @@
 #include <condition_variable>
 #include <functional>
 #include <atomic>
+#include <fstream>
 
 #include <SFML/Graphics.hpp>
 #include "SFML/System.hpp"
@@ -188,8 +189,10 @@ struct Frontend
         , sprite(texture)
         , fpsText(font, "FPS: 0", TEXT_SIZE)
         , msText(font, "Ms: 0", TEXT_SIZE)
+
+
     {
-        if (!font.openFromFile("res/" + fontName))
+        if (!font.openFromFile("res\\" + fontName))
         {
             throw std::runtime_error("Failed to load font!");
         }
